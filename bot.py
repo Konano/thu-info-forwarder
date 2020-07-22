@@ -123,7 +123,7 @@ def detect():
                 # Send to Pipeline channel
                 sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'newinfo', 'data': each}), config['FORWARD']['pipe'])
                 # Send to THU INFO channel
-                msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(each), config['FORWARD']['test'], 'MarkdownV2') # FIXME
+                msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(each), config['FORWARD']['channel'], 'MarkdownV2')
                 # Send to Closed mastodon
                 mastodon.toot(format.mastodon(each))['id']
                 lastMessages[each['url']] = {'data': each, 'msgid': msgID}
@@ -134,9 +134,9 @@ def detect():
             for each in delMessages:
                 logging.info('Delete: '+each)
                 # Delete from Pipeline channel
-                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': each}), config['FORWARD']['pipe']) # FIXME
+                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': each}), config['FORWARD']['pipe'])
                 # Delete from THU INFO channel
-                deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['test'], lastMessages[each]['msgid'])
+                deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'], lastMessages[each]['msgid'])
                 del lastMessages[each]
 
         with open(config['JSON']['info'], 'w') as file:
