@@ -1,8 +1,13 @@
 import crawler
+import format
+
+import os
 import json
 import time
-import os
+import requests
 import configparser
+from mastodon import Mastodon
+
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -12,13 +17,69 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(lineno)d 
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Mastodon.create_app(
+#     'bot',
+#     api_base_url = config['MASTODON']['url'],
+#     to_file = config['MASTODON']['clientcred']
+# )
+mastodon = Mastodon(
+    client_id = config['MASTODON']['clientcred'],
+    api_base_url = config['MASTODON']['url']
+)
+mastodon.log_in(
+    username = config['MASTODON']['email'],
+    password = config['MASTODON']['pwd'],
+    to_file = config['MASTODON']['usercred']
+)
+mastodon = Mastodon(
+    access_token = config['MASTODON']['usercred'],
+    api_base_url = config['MASTODON']['url']
+)
+
+
+# Send msg to Telegram
+def sendMessage(token, text, chat_id, parse_mode=None):
+    while True:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36'}
+        url = f'https://tg.nanoape.workers.dev/bot{token}/sendMessage'
+        params = {'text': text, 'chat_id': chat_id, 'disable_web_page_preview': True}
+        if parse_mode != None:
+            params['parse_mode'] = parse_mode
+        try:
+            response = requests.get(url=url, params=params, headers=headers, timeout=(5, 10))
+            assert response.status_code == 200
+            logging.debug(response.json())
+            return response.json()['result']['message_id']
+        except Exception as e:
+            logging.error(e)
+            time.sleep(1)
+            continue
+
+
+# Delete msg in Telegram
+def deleteMessage(token, chat_id, message_id):
+    while True:
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36'}
+        url = f'https://tg.nanoape.workers.dev/bot{token}/deleteMessage'
+        params = {'chat_id': chat_id, 'message_id': message_id}
+        try:
+            response = requests.get(url=url, params=params, headers=headers, timeout=(5, 10))
+            assert response.status_code == 200
+            logging.debug(response.json())
+            return
+        except Exception as e:
+            logging.error(e)
+            time.sleep(1)
+            continue
+
 
 def detect():
     try:
-        with open('/data/info.json', 'r') as file:
+        with open(config['JSON']['info'], 'r') as file:
             lastMessages = json.load(file)
-    except:
-        lastMessages = []
+    except Exception as e:
+        logging.error(e)
+        lastMessages = {}
 
     while True:
         messages = []
@@ -28,8 +89,8 @@ def detect():
                 messages += crawler.detect(config['URL'][category])
             messages += crawler.detectBoard(config['URL']['board'])
             messages += crawler.detectLibrary(config['URL']['library'])
-        except:
-            logging.warning('Network Error')
+        except Exception as e:
+            logging.error(e)
             time.sleep(60)
             continue
 
@@ -38,52 +99,47 @@ def detect():
             if each['url'][0] == '/':
                 each['url'] = config['URL']['postinfo'] + each['url']
 
-        if len(messages) == 0:
-            logging.warning('empty messages')
-            time.sleep(60)
-            continue
-
         newMessages = []
         delMessages = []
 
         for each in messages:
-            if each not in lastMessages:
+            if each['url'] not in lastMessages.keys():
                 newMessages.append(each)
 
-        for each in lastMessages:
-            if each not in messages:
+        messageURLs = [x['url'] for x in messages]
+
+        for each in lastMessages.keys():
+            if each not in messageURLs:
                 delMessages.append(each)
 
         if len(newMessages) > 0 or len(delMessages) > 0:
-            logging.info('Messages: %d, New: %d, Del: %d'%(len(messages),len(newMessages),len(delMessages)))
+            logging.info('Messages: %d, New: %d, Del: %d' % (len(messages), len(newMessages), len(delMessages)))
         
         if newMessages != []:
             if len(newMessages) > 3:
                 newMessages = newMessages[:3]
-            # try:
-            #     sendMsg('I'+json.dumps(newMessages))
-            # except:
-            #     logging.exception('Connect Error')
-            #     running = False
-            #     return
-
-            # for each in newMessages:
-            #     lastMessages.append(each)
+            for each in newMessages:
+                logging.info(each)
+                # Send to Pipeline channel
+                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'newinfo', 'data': each}), config['FORWARD']['pipe'])
+                # Send to THU INFO channel
+                msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(each), config['FORWARD']['test'], 'MarkdownV2') # FIXME
+                # Send to Closed mastodon
+                mastodon.toot(format.mastodon(each))['id']
+                lastMessages[each['url']] = {'data': each, 'msgid': msgID}
 
         if delMessages != []:
             if len(delMessages) > 3:
                 delMessages = delMessages[:3]
-            # try:
-            #     sendMsg('D'+json.dumps(delMessages))
-            # except:
-            #     logging.exception('Connect Error')
-            #     running = False
-            #     return
+            for each in delMessages:
+                logging.info('Delete: '+each)
+                # Delete from Pipeline channel
+                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': each}), config['FORWARD']['pipe']) # FIXME
+                # Delete from THU INFO channel
+                deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['test'], lastMessages[each]['msgid'])
+                del lastMessages[each]
 
-            # for each in delMessages:
-            #     lastMessages.remove(each)
-
-        with open('/data/info.json', 'w') as file:
+        with open(config['JSON']['info'], 'w') as file:
             json.dump(lastMessages, file)
 
         time.sleep(60)

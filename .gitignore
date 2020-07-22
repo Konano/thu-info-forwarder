@@ -1,2 +1,5 @@
 config.ini
 .vscode
+__pycache__
+*.pyc
+secret
