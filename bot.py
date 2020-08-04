@@ -125,7 +125,10 @@ def detect():
                 # Send to THU INFO channel
                 msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(each), config['FORWARD']['channel'], 'MarkdownV2')
                 # Send to Closed mastodon
-                mastodon.toot(format.mastodon(each))['id']
+                try:
+                    mastodon.toot(format.mastodon(each))['id']
+                except Exception as e:
+                    logging.error(e)
                 lastMessages[each['url']] = {'data': each, 'msgid': msgID}
 
         if delMessages != []:
