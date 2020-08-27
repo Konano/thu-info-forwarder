@@ -53,4 +53,5 @@ class AutoRun():
         self.p = subprocess.Popen(['python3', self.pyfile], stdin = sys.stdin, stdout = sys.stdout, stderr = sys.stderr, shell = False)
 
 if __name__ == '__main__':
-    app = AutoRun(config['AUTORUN'].getint('interval'), config['AUTORUN']['pyfile'])
+    # app = AutoRun(config['AUTORUN'].getint('interval'), config['AUTORUN']['pyfile'])
+    pass
