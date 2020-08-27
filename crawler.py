@@ -13,7 +13,7 @@ def detect(URL):
         messages.append({'title' : tmp[0],
                          'source': tmp[1][1:-1],
                          'date'  : tmp[2],
-                         'url'   : each.find('a').get('href')})
+                         'url'   : each.find('a').get('href').strip()})
     assert len(messages) > 0
     return messages
 
@@ -26,7 +26,7 @@ def detectBoard(URL):
     for each in content:
         messages.append({'title' : each.get('title'),
                          'source': '重要公告',
-                         'url'   : each.get('href')})
+                         'url'   : each.get('href').strip()})
     assert len(messages) > 0
     return messages
 
