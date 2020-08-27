@@ -36,6 +36,8 @@ mastodon = Mastodon(
     api_base_url = config['MASTODON']['url']
 )
 
+def sendHeartbeat():
+    requests.get(url=config['HEARTBEAT']['url'], timeout=(5, 10))
 
 # Send msg to Telegram
 def sendMessage(token, text, chat_id, parse_mode=None):
@@ -145,6 +147,7 @@ def detect():
         with open(config['JSON']['info'], 'w') as file:
             json.dump(lastMessages, file)
 
+        sendHeartbeat()
         time.sleep(60)
 
 if __name__ == '__main__':
