@@ -37,7 +37,10 @@ mastodon = Mastodon(
 )
 
 def sendHeartbeat():
-    requests.get(url=config['HEARTBEAT']['url'], timeout=(5, 10))
+    try:
+        requests.get(url=config['HEARTBEAT']['url'], timeout=(5, 10))
+    except Exception as e:
+        logging.error(e)
 
 # Send msg to Telegram
 def sendMessage(token, text, chat_id, parse_mode=None):
