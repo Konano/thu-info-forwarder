@@ -4,7 +4,7 @@ import re
 
 
 def detect(URL):
-    html = requests.get(URL).content
+    html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('.cont_list > li')
     messages = []
@@ -19,7 +19,7 @@ def detect(URL):
 
 
 def detectBoard(URL):
-    html = requests.get(URL).content
+    html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('table > tr > td > a')
     messages = []
@@ -32,7 +32,7 @@ def detectBoard(URL):
 
 
 def detectLibrary(URL):
-    html = requests.get(URL).content
+    html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('table > tbody > tr > td > a')
     messages = []
