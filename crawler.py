@@ -48,5 +48,19 @@ def detectLibrary(URL):
     return messages
 
 
+def detectMyhome(URL):
+    html = requests.get(URL, timeout=(5, 10)).content
+    bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
+    content = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')[1:]
+    messages = []
+    for each in content:
+        messages.append({'title' : each.get_text().strip(),
+                         'source': '家园网公告',
+                         'url'   : 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
+    if len(messages) == 0:
+        raise Exception(URL)
+    return messages
+
+
 def request(URL):
     return requests.get(URL).content.decode('utf-8')
