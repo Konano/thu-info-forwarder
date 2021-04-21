@@ -14,7 +14,8 @@ def detect(URL):
                          'source': tmp[1][1:-1],
                          'date'  : tmp[2],
                          'url'   : each.find('a').get('href').strip()})
-    assert len(messages) > 0
+    if len(messages) == 0:
+        raise Exception(URL)
     return messages
 
 
@@ -27,20 +28,23 @@ def detectBoard(URL):
         messages.append({'title' : each.get('title'),
                          'source': '重要公告',
                          'url'   : each.get('href').strip()})
-    assert len(messages) > 0
+    if len(messages) == 0:
+        raise Exception(URL)
     return messages
 
 
 def detectLibrary(URL):
     html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
-    content = bs.select('table > tbody > tr > td > a')
+    content = bs.select('body > div.main > div > div > ul > li > div.notice-list-tt > a')
+    source = bs.select('body > div.ban > h3')[0].get_text().strip()
     messages = []
     for each in content:
         messages.append({'title' : each.get_text(),
-                         'source': '图书馆公告',
-                         'url'   : 'http://lib.tsinghua.edu.cn'+each.get('href')})
-    assert len(messages) > 0
+                         'source': '图书馆' + source,
+                         'url'   : 'http://lib.tsinghua.edu.cn/'+each.get('href')})
+    if len(messages) == 0:
+        raise Exception(URL)
     return messages
 
 

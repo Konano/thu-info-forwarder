@@ -93,7 +93,8 @@ def detect():
             for category in category_list:
                 messages += crawler.detect(config['URL'][category])
             messages += crawler.detectBoard(config['URL']['board'])
-            messages += crawler.detectLibrary(config['URL']['library'])
+            messages += crawler.detectLibrary(config['URL']['libtzgg'])
+            messages += crawler.detectLibrary(config['URL']['libzydt'])
         except Exception as e:
             logging.error(e)
             time.sleep(60)
