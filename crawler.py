@@ -37,11 +37,13 @@ def detectLibrary(URL):
     html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('body > div.main > div > div > ul > li > div.notice-list-tt > a')
+    bs_date = bs.select('body > div.main > div > div > ul > li > div.notice-date')
     source = bs.select('body > div.ban > h3')[0].get_text().strip()
     messages = []
-    for each in content:
+    for each, date in zip(content, bs_date):
         messages.append({'title' : each.get_text(),
                          'source': '图书馆' + source,
+                         'date'  : date.get_text().strip()[:10].replace('/', '.'),
                          'url'   : 'http://lib.tsinghua.edu.cn/'+each.get('href')})
     if len(messages) == 0:
         raise Exception(URL)
@@ -52,10 +54,12 @@ def detectMyhome(URL):
     html = requests.get(URL, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')[1:]
+    bs_date = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(3)')[1:]
     messages = []
-    for each in content:
+    for each, date in zip(content, bs_date):
         messages.append({'title' : each.get_text().strip(),
                          'source': '家园网公告',
+                         'date'  : date.get_text().strip()[:10].replace('-', '.'),
                          'url'   : 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
     if len(messages) == 0:
         raise Exception(URL)
