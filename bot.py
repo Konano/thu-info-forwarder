@@ -6,6 +6,7 @@ import json
 import pymongo
 import requests
 import configparser
+from mastodon import Mastodon
 
 
 config = configparser.ConfigParser()
@@ -17,6 +18,25 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(lineno)d 
 logger = logging.getLogger(__name__)
 
 db = pymongo.MongoClient(f'mongodb://{config["MONGODB"]["user"]}:{config["MONGODB"]["pwd"]}@{config["MONGODB"]["host"]}:{config["MONGODB"]["port"]}/')['service']['info']
+
+# Mastodon.create_app(
+#     'bot',
+#     api_base_url = config['MASTODON']['url'],
+#     to_file = config['MASTODON']['clientcred']
+# )
+mastodon = Mastodon(
+    client_id = config['MASTODON']['clientcred'],
+    api_base_url = config['MASTODON']['url']
+)
+mastodon.log_in(
+    username = config['MASTODON']['email'],
+    password = config['MASTODON']['pwd'],
+    to_file = config['MASTODON']['usercred']
+)
+mastodon = Mastodon(
+    access_token = config['MASTODON']['usercred'],
+    api_base_url = config['MASTODON']['url']
+)
 
 
 def sendHeartbeat():
@@ -103,6 +123,11 @@ def detect():
                 sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'newinfo', 'data': x}), config['FORWARD']['pipe'])
                 # Send to THU INFO channel
                 msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(x), config['FORWARD']['channel'], 'MarkdownV2')
+                # Send to Closed mastodon
+                try:
+                    mastodon.toot(format.mastodon(x))
+                except Exception as e:
+                    logging.error(e)
                 
                 insert_news_urls.add(x['url'])
                 x['valid'] = True
