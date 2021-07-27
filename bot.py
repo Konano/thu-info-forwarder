@@ -125,14 +125,15 @@ def detect():
                 msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(x), config['FORWARD']['channel'], 'MarkdownV2')
                 # Send to Closed mastodon
                 try:
-                    mastodon.toot(format.mastodon(x))
+                    __msgID = mastodon.toot(format.mastodon(x))
                 except Exception as e:
+                    __msgID = -1
                     logging.error(e)
                 
                 insert_news_urls.add(x['url'])
                 x['valid'] = True
                 x['deleted'] = False
-                x['msgID'] = {'info_channel': msgID, 'notify': 0, 'tuna': 0, 'closed': 0}
+                x['msgID'] = {'info_channel': msgID, 'notify': 0, 'tuna': 0, 'closed': __msgID}
                 db.insert_one(x)
             
         news_urls = [x['url'] for x in news]
@@ -145,14 +146,21 @@ def detect():
                     db.update_one({'url': u}, {'$set': {'valid': False, 'deleted': False}})
                 elif u not in __news_urls:
                     delete_news_urls.add(u)
-                    db.update_one({'url': u}, {'$set': {'valid': False, 'deleted': True}})
+                    x = db.find_one_and_update({'url': u}, {'$set': {'valid': False, 'deleted': True}})
 
                     # Delete from Pipeline channel
                     sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': u}), config['FORWARD']['pipe'])
                     # Delete from THU INFO channel
-                    msgID = db.find_one({'url': u})['msgID']['info_channel']
+                    msgID = x['msgID']['info_channel']
                     if msgID > 0:
                         deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'], msgID)
+                    # Delete from Closed mastodon
+                    try:
+                        msgID = x['msgID']['closed']
+                        if msgID > 0:
+                            mastodon.status_delete(msgID)
+                    except Exception as e:
+                        logging.error(e)
         
         all_news_urls.update(insert_news_urls)
         valid_news_urls.update(insert_news_urls)
