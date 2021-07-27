@@ -1,12 +1,11 @@
 import crawler
 import format
 
-import os
-import json
 import time
+import json
+import pymongo
 import requests
 import configparser
-from mastodon import Mastodon
 
 
 config = configparser.ConfigParser()
@@ -17,24 +16,8 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(lineno)d 
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Mastodon.create_app(
-#     'bot',
-#     api_base_url = config['MASTODON']['url'],
-#     to_file = config['MASTODON']['clientcred']
-# )
-mastodon = Mastodon(
-    client_id = config['MASTODON']['clientcred'],
-    api_base_url = config['MASTODON']['url']
-)
-mastodon.log_in(
-    username = config['MASTODON']['email'],
-    password = config['MASTODON']['pwd'],
-    to_file = config['MASTODON']['usercred']
-)
-mastodon = Mastodon(
-    access_token = config['MASTODON']['usercred'],
-    api_base_url = config['MASTODON']['url']
-)
+db = pymongo.MongoClient(f'mongodb://{config["MONGODB"]["user"]}:{config["MONGODB"]["pwd"]}@{config["MONGODB"]["host"]}:{config["MONGODB"]["port"]}/')['service']['info']
+
 
 def sendHeartbeat():
     try:
@@ -77,80 +60,81 @@ def deleteMessage(token, chat_id, message_id):
             time.sleep(1)
             continue
 
-
 def detect():
-    try:
-        with open(config['JSON']['info'], 'r') as file:
-            lastMessages = json.load(file)
-    except Exception as e:
-        logging.error(e)
-        lastMessages = {}
+    valid_news_urls = set([x['url'] for x in db.find({'valid': True})])
+    all_news_urls = set([x['url'] for x in db.find()])
+
+    logger.debug(f'Valid: {len(valid_news_urls)}, All: {len(all_news_urls)}')
 
     while True:
-        messages = []
+        insert_news_urls = set()
+        delete_news_urls = set()
         try:
-            category_list = ['academic', '7days', 'business', 'poster', 'research']
-            for category in category_list:
-                messages += crawler.detect(config['URL'][category])
-            messages += crawler.detectBoard(config['URL']['board'])
-            messages += crawler.detectLibrary(config['URL']['libtzgg'])
-            messages += crawler.detectLibrary(config['URL']['libzydt'])
-            messages += crawler.detectMyhome(config['URL']['myhome'])
+            news = []
+            for category in ['academic', '3days', 'business', 'poster', 'research']:
+                news += crawler.detect(config['URL'][category])
+            
+            news += crawler.detectBoard()
+            news += crawler.detectLibrary()
+            news += crawler.detectMyhome()
+
+            __news = []
+            for category in ['academic', '3days', 'business', 'poster', 'research']:
+                __news += crawler.detect(config['URL'][category]+'?page=1')
+
         except Exception as e:
             logging.error(e)
             time.sleep(60)
             continue
 
-        for each in messages:
-            each['title'] = each['title'].replace('[','(').replace(']',')')
-            if each['url'][0] == '/':
-                each['url'] = config['URL']['postinfo'] + each['url']
+        for x in news:
+            x['title'] = x['title'].replace('[','(').replace(']',')')
+            if x['url'][0] == '/':
+                x['url'] = config['URL']['postinfo'] + x['url']
 
-        newMessages = []
-        delMessages = []
+        for x in __news:
+            x['title'] = x['title'].replace('[','(').replace(']',')')
+            if x['url'][0] == '/':
+                x['url'] = config['URL']['postinfo'] + x['url']
 
-        for each in messages:
-            if each['url'] not in lastMessages.keys():
-                newMessages.append(each)
-
-        messageURLs = [x['url'] for x in messages]
-
-        for each in lastMessages.keys():
-            if each not in messageURLs:
-                delMessages.append(each)
-
-        if len(newMessages) > 0 or len(delMessages) > 0:
-            logging.info('Messages: %d, New: %d, Del: %d' % (len(messages), len(newMessages), len(delMessages)))
-        
-        if newMessages != []:
-            if len(newMessages) > 3:
-                newMessages = newMessages[:3]
-            for each in newMessages:
-                logging.info(each)
+        for x in news:
+            if x['url'] not in valid_news_urls and x['url'] not in all_news_urls:
                 # Send to Pipeline channel
-                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'newinfo', 'data': each}), config['FORWARD']['pipe'])
+                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'newinfo', 'data': x}), config['FORWARD']['pipe'])
                 # Send to THU INFO channel
-                msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(each), config['FORWARD']['channel'], 'MarkdownV2')
-                # Send to Closed mastodon
-                try:
-                    mastodon.toot(format.mastodon(each))['id']
-                except Exception as e:
-                    logging.error(e)
-                lastMessages[each['url']] = {'data': each, 'msgid': msgID}
+                msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(x), config['FORWARD']['channel'], 'MarkdownV2')
+                
+                insert_news_urls.add(x['url'])
+                x['valid'] = True
+                x['deleted'] = False
+                x['msgID'] = {'info_channel': msgID, 'notify': 0, 'tuna': 0, 'closed': 0}
+                db.insert_one(x)
+            
+        news_urls = [x['url'] for x in news]
+        __news_urls = [x['url'] for x in news]
+        for u in valid_news_urls:
+            if u not in news_urls:
+                valid_news_urls.remove(u)
+                if u in __news_urls:
+                    delete_news_urls.add(u)
+                    db.update_one({'url': u}, {'$set': {'valid': False, 'deleted': False}})
+                elif u not in __news_urls:
+                    delete_news_urls.add(u)
+                    db.update_one({'url': u}, {'$set': {'valid': False, 'deleted': True}})
 
-        if delMessages != []:
-            if len(delMessages) > 3:
-                delMessages = delMessages[:3]
-            for each in delMessages:
-                logging.info('Delete: '+each)
-                # Delete from Pipeline channel
-                sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': each}), config['FORWARD']['pipe'])
-                # Delete from THU INFO channel
-                deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'], lastMessages[each]['msgid'])
-                del lastMessages[each]
+                    # Delete from Pipeline channel
+                    sendMessage(config['TOKEN']['fwer'], json.dumps({'type': 'delinfo', 'data': u}), config['FORWARD']['pipe'])
+                    # Delete from THU INFO channel
+                    msgID = db.find_one({'url': u})['msgID']['info_channel']
+                    if msgID > 0:
+                        deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'], msgID)
+        
+        all_news_urls.update(insert_news_urls)
+        valid_news_urls.update(insert_news_urls)
+        valid_news_urls -= delete_news_urls
 
-        with open(config['JSON']['info'], 'w') as file:
-            json.dump(lastMessages, file)
+        if len(insert_news_urls) > 0 or len(delete_news_urls) > 0:
+            logging.info('Messages: %d, New: %d, Del: %d' % (len(news_urls), len(insert_news_urls), len(delete_news_urls)))
 
         sendHeartbeat()
         time.sleep(60)

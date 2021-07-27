@@ -16,7 +16,7 @@ def webvpn(url):
     def encrypt(url):
         url = str.encode(url)
         cryptor = AES.new(encryStr, AES.MODE_CFB, encryStr, segment_size = 16*8)
-        
+
         return bytes.decode(binascii.b2a_hex(encryStr)) + \
             bytes.decode(binascii.b2a_hex(cryptor.encrypt(url)))
 

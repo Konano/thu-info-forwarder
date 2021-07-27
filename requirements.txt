@@ -1,5 +1,4 @@
 beautifulsoup4==4.9.3
 lxml==4.6.3
-Mastodon.py==1.5.1
 pycryptodome==3.9.4
-
+pymongo
