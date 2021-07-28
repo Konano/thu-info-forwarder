@@ -126,7 +126,7 @@ def detect():
                 msgID = sendMessage(config['TOKEN']['fwer'], format.tg_single(x), config['FORWARD']['channel'], 'MarkdownV2')
                 # Send to Closed mastodon
                 try:
-                    __msgID = mastodon.toot(format.mastodon(x))
+                    __msgID = mastodon.toot(format.mastodon(x)).id
                 except Exception as e:
                     __msgID = -1
                     logging.error(e)
