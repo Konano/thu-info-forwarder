@@ -6,6 +6,7 @@ import json
 import pymongo
 import requests
 import configparser
+from datetime import datetime
 from mastodon import Mastodon
 
 
@@ -133,6 +134,7 @@ def detect():
                 insert_news_urls.add(x['url'])
                 x['valid'] = True
                 x['deleted'] = False
+                x['createTime'] = datetime.now()
                 x['msgID'] = {'info_channel': msgID, 'notify': 0, 'tuna': 0, 'closed': __msgID}
                 db.insert_one(x)
             
@@ -140,11 +142,10 @@ def detect():
         __news_urls = [x['url'] for x in news]
         for u in valid_news_urls:
             if u not in news_urls:
-                valid_news_urls.remove(u)
                 if u in __news_urls:
                     delete_news_urls.add(u)
                     db.update_one({'url': u}, {'$set': {'valid': False, 'deleted': False}})
-                elif u not in __news_urls:
+                else:
                     delete_news_urls.add(u)
                     x = db.find_one_and_update({'url': u}, {'$set': {'valid': False, 'deleted': True}})
 
