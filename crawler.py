@@ -44,7 +44,7 @@ def detectLibrary():
     news = []
     for each, date in zip(content, bs_date):
         news.append({'title'  : each.get_text(),
-                     'source' : '图书馆' + source,
+                     'source' : f'图书馆公告 {source}',
                      'date'   : date.get_text().strip()[:10].replace('/', '.'),
                      'url'    : 'http://lib.tsinghua.edu.cn/'+each.get('href')})
     if len(news) == 0:
@@ -59,7 +59,7 @@ def detectLibrary():
     __news = []
     for each, date in zip(content, bs_date):
         __news.append({'title'  : each.get_text(),
-                       'source' : '图书馆' + source,
+                       'source' : f'图书馆公告 {source}',
                        'date'   : date.get_text().strip()[:10].replace('/', '.'),
                        'url'    : 'http://lib.tsinghua.edu.cn/'+each.get('href')})
     if len(__news) == 0:
@@ -72,12 +72,13 @@ def detectMyhome():
     url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.html'
     html = requests.get(url, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
-    content = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')[1:]
+    content = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')
     bs_date = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(3)')[1:]
+    sources = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(4)')[1:]
     news = []
-    for each, date in zip(content, bs_date):
+    for each, date, source in zip(content, bs_date, sources):
         news.append({'title'  : each.get_text().strip(),
-                     'source' : '家园网公告',
+                     'source' : f'家园网公告 {source.get_text().strip()}',
                      'date'   : date.get_text().strip()[:10].replace('-', '.'), # todo
                      'url'    : 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
     if len(news) == 0:
