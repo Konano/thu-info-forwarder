@@ -14,7 +14,7 @@ def detect(url):
                      'source' : tmp[1][1:-1],
                      'date'   : tmp[2],
                      'url'    : each.find('a').get('href').strip()})
-    if len(news) == 0:
+    if len(news) == 0 and url[-4:] == 'more':
         raise Exception(url)
     return news
 
