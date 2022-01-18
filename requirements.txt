@@ -2,3 +2,4 @@ beautifulsoup4==4.9.3
 lxml==4.6.5
 pycryptodome==3.9.4
 pymongo
+colorlog

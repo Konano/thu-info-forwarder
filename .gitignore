@@ -4,3 +4,5 @@ __pycache__
 *.pyc
 secret
 data/
+log/
+test.py
