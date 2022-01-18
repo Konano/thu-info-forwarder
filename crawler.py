@@ -69,7 +69,7 @@ def detectLibrary():
 
 
 def detectMyhome():
-    url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.html'
+    url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.aspx'
     html = requests.get(url, timeout=(5, 10)).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select('table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')
