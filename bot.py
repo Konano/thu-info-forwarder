@@ -115,6 +115,43 @@ def db_update(x, param):
             logger.warning(e)
 
 
+def get_news(nextpage=False):
+    while True:
+        try:
+            news = []
+            news += crawler.detectInfo(nextpage)
+            news += crawler.detectInfoAcademic(nextpage)
+            news += crawler.detectMyhome(nextpage)
+            news += crawler.detectNews(nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/zydt.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', nextpage)
+            news += crawler.detectLibrary(
+                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm', nextpage)
+            news += crawler.detectOffice(
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710', nextpage)
+            news += crawler.detectOffice(
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22', nextpage)
+            news += crawler.detectOffice(
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303', nextpage)
+            break
+        except Exception as e:
+            logger.warning(e)
+            logger.debug(traceback.format_exc())
+            time.sleep(60)
+            continue
+    return news
+
+
 def detect():
     # valid means firstpage
     valid_news_urls = set([x['url'] for x in db.find({'valid': True})])
@@ -125,64 +162,7 @@ def detect():
     while True:
         insert_news_urls = set()
         delete_news_urls = set()
-        try:
-            news = []
-            news += crawler.detectInfo()
-            news += crawler.detectInfoAcademic()
-            news += crawler.detectMyhome()
-            news += crawler.detectNews()
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/zydt.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm')
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm')
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710')
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22')
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303')
-
-            __news = []
-            __news += crawler.detectInfo(True)
-            __news += crawler.detectInfoAcademic(True)
-            __news += crawler.detectMyhome(True)
-            __news += crawler.detectNews(True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/zydt.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', True)
-            __news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm', True)
-            __news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710', True)
-            __news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22', True)
-            __news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303', True)
-
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.error(e)
-            time.sleep(60)
-            continue
+        news = get_news()
 
         for x in news:
             if x['url'] not in all_news_urls:
@@ -212,9 +192,11 @@ def detect():
                 db_insert(x)
 
         news_urls = [x['url'] for x in news]
-        __news_urls = [x['url'] for x in news]
+        __news_urls = None
         for u in valid_news_urls:
             if u not in news_urls:
+                if __news_urls is None:
+                    __news_urls = [x['url'] for x in get_news(True)]
                 if u in __news_urls:
                     delete_news_urls.add(u)
                     db_update(
