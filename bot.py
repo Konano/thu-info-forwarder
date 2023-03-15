@@ -139,7 +139,7 @@ def detect():
 
             # Delete from thu.closed.social
             try:
-                __msgID = x['msgID']['closed']
+                __msgID = news[u]['msgID']['closed']
                 if __msgID > 0:
                     mastodon.status_delete(__msgID)
             except Exception as e:
