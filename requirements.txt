@@ -1,5 +1,5 @@
-beautifulsoup4==4.9.3
-lxml==4.9.1
-pycryptodome==3.9.4
-pymongo
-colorlog
+beautifulsoup4~=4.11.2
+lxml~=4.9.2
+pycryptodome~=3.17
+colorlog~=6.7.0
+schedule~=1.1.0

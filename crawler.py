@@ -1,15 +1,9 @@
-import requests
-from bs4 import BeautifulSoup
-import http.cookiejar as HC
-import json
 import html
+import json
 
-session = requests.session()
-session.cookies = HC.LWPCookieJar(filename='secret/cookies')
-try:
-    session.cookies.load(ignore_discard=True)
-except:
-    pass
+from bs4 import BeautifulSoup
+
+from base import network
 
 
 def detectInfo(nextpage=False):
@@ -17,16 +11,16 @@ def detectInfo(nextpage=False):
     page = 1 if not nextpage else 2
     while error_count <= 1:
         try:
-            csrf = session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
+            csrf = network.session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
             url = f'https://info2021.tsinghua.edu.cn/b/info/xxfb_fg/xnzx/template/more?oType=mr&lmid=all&lydw=&currentPage={page}&length=30&_csrf={csrf}'
-            res = session.post(url, timeout=(5, 10)).text
+            res = network.session_post(url).text
             res = json.loads(res)
             assert res['result'] == 'success'
         except Exception as e:
             error_count += 1
-            session.get(
-                'https://info2021.tsinghua.edu.cn/f/info/xxfb_fg/xnzx/template/more?lmid=all', timeout=(5, 10))
-            session.cookies.save(ignore_discard=True)
+            network.session_get(
+                'https://info2021.tsinghua.edu.cn/f/info/xxfb_fg/xnzx/template/more?lmid=all')
+            network.session.cookies.save(ignore_discard=True)
             continue
 
         news = []
@@ -49,16 +43,16 @@ def detectInfoAcademic(nextpage=False):
     error_count = 0
     while error_count <= 1:
         try:
-            csrf = session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
+            csrf = network.session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
             url = f'https://info2021.tsinghua.edu.cn/b/hdrc_fg/api/xxfb?_csrf={csrf}'
-            res = session.post(url, timeout=(5, 10)).text
+            res = network.session_post(url).text
             res = json.loads(res)
             assert res['result'] == 'success'
         except Exception:
             error_count += 1
-            session.get(
-                'https://info2021.tsinghua.edu.cn/f/info/xxfb_fg/xnzx/template/more?lmid=all', timeout=(5, 10))
-            session.cookies.save(ignore_discard=True)
+            network.session_get(
+                'https://info2021.tsinghua.edu.cn/f/info/xxfb_fg/xnzx/template/more?lmid=all')
+            network.session.cookies.save(ignore_discard=True)
             continue
 
         news = []
@@ -82,7 +76,8 @@ def detectInfoAcademic(nextpage=False):
 
 
 def detectLibrary(url, nextpage=False):
-    html = requests.get(url, timeout=(5, 10)).content
+    html = network.get(url).content
+    # print(html)
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     if nextpage:
         __url = bs.select(
@@ -90,7 +85,7 @@ def detectLibrary(url, nextpage=False):
         if len(__url) == 0:
             return []
         url = url[::-1].split('/', 1)[1][::-1] + '/' + __url[0].get('href')
-        html = requests.get(url, timeout=(5, 10)).content
+        html = network.get(url).content
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select(
         'body > div.main > div > div > ul > li > div.notice-list-tt > a')
@@ -104,8 +99,8 @@ def detectLibrary(url, nextpage=False):
             'source': '图书馆'+source,
             'date': date.get_text().strip()[:10].replace('/', '.'),
             'url': 'https://lib.tsinghua.edu.cn/'+each.get('href').replace('../', '')})
-    if len(news) == 0:
-        raise Exception(url)
+    # if len(news) == 0:
+    #     raise Exception(url)
     return news
 
 
@@ -113,7 +108,7 @@ def detectMyhome(nextpage=False):
     url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.aspx'
     if nextpage:
         url += '?page=2'
-    html = requests.get(url, timeout=(5, 10)).content
+    html = network.get(url).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     content = bs.select(
         'table > tr > td:nth-child(2) > div > div.blueline.margin5 > div > table > tr > td:nth-child(2) > a')
@@ -135,13 +130,13 @@ def detectMyhome(nextpage=False):
 
 def detectNews(nextpage=False):
     url = 'https://www.tsinghua.edu.cn/news/zxdt.htm'
-    html = requests.get(url, timeout=(5, 10)).content
+    html = network.get(url).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     if nextpage:
         __url = bs.select(
             'body > div.rem12 > div.left > div.fanye.pcfyt > ul > div > span.p_pages > span.p_next.p_fun > a')[0]
         url = url[::-1].split('/', 1)[1][::-1] + '/' + __url.get('href')
-        html = requests.get(url, timeout=(5, 10)).content
+        html = network.get(url).content
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     titles = bs.select(
         'body > div.rem12 > div.left > ul > li > a > div.tit > p')
@@ -163,7 +158,7 @@ def detectNews(nextpage=False):
 def detectOffice(url, nextpage=False):
     if nextpage:
         url += '&pageno=2'
-    html = requests.get(url, timeout=(5, 10)).content
+    html = network.get(url).content
     bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
     source = bs.select(
         'body > table:nth-child(2) > tr > td > table > tr > td:nth-child(2)')[0].get_text().strip()

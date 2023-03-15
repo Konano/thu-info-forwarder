@@ -1,241 +1,174 @@
-import crawler
-import format
-from log import logger
-
-import time
 import json
-import pymongo
-import pymongo.errors
-import requests
-import traceback
-import configparser
+import sys
+import time
 from datetime import datetime
-from mastodon import Mastodon
 
+import schedule
 
-config = configparser.ConfigParser()
-config.read('config.ini')
+import crawler
+from base import format, network
+from base.config import CHANNEL, MASTODON, botToken, heartbeatURL
+from base.data import localDict
+from base.debug import eprint
+from base.log import logger
+from base.mastodon import mastodon_init, mastodon_login
+from base.telegram import deleteMessage, sendMessage
 
-db = pymongo.MongoClient(
-    f'mongodb://{config["MONGODB"]["user"]}:{config["MONGODB"]["pwd"]}@{config["MONGODB"]["host"]}:{config["MONGODB"]["port"]}/')['service']['info']
-
-# Mastodon.create_app(
-#     'bot',
-#     api_base_url = config['MASTODON']['url'],
-#     to_file = config['MASTODON']['clientcred']
-# )
-mastodon = Mastodon(
-    client_id=config['MASTODON']['clientcred'],
-    api_base_url=config['MASTODON']['url']
-)
-mastodon.log_in(
-    username=config['MASTODON']['email'],
-    password=config['MASTODON']['pwd'],
-    to_file=config['MASTODON']['usercred']
-)
-mastodon = Mastodon(
-    access_token=config['MASTODON']['usercred'],
-    api_base_url=config['MASTODON']['url']
-)
+try:
+    mastodon = mastodon_login(**MASTODON)
+    assert mastodon is not None
+except Exception as e:
+    eprint(e)
+    mastodon_init(**MASTODON)
+    mastodon = mastodon_login(**MASTODON)
 
 
 def sendHeartbeat():
     try:
-        requests.get(url=config['HEARTBEAT']['url'], timeout=(5, 10))
+        network.get(heartbeatURL)
     except Exception as e:
-        logger.debug(traceback.format_exc())
-        logger.warning(e)
+        eprint(e)
 
 
-UA = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36'
+redirect = localDict('redirect')
 
 
-# Send msg to Telegram
-def sendMessage(token, chat_id, text, parse_mode=None):
-    error_count = 0
-    while error_count < 6:
-        headers = {'User-Agent': UA}
-        url = f'https://tg.nano.ac/bot{token}/sendMessage'
-        params = {'text': text, 'chat_id': chat_id,
-                  'disable_web_page_preview': True}
-        if parse_mode != None:
-            params['parse_mode'] = parse_mode
-        try:
-            response = requests.get(
-                url=url, params=params, headers=headers, timeout=(5, 10))
-            assert response.status_code == 200
-            logger.debug(response.json())
-            return response.json()['result']['message_id']
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.warning(e)
-            error_count += 1
-        time.sleep(5)
-    raise Exception('Send msg TIMEOUT')
-
-
-# Delete msg from Telegram
-def deleteMessage(token, chat_id, message_id):
-    error_count = 0
-    while error_count < 6:
-        headers = {'User-Agent': UA}
-        url = f'https://tg.nano.ac/bot{token}/deleteMessage'
-        params = {'chat_id': chat_id, 'message_id': message_id}
-        try:
-            response = requests.get(
-                url=url, params=params, headers=headers, timeout=(5, 10))
-            assert response.status_code == 200
-            logger.debug(response.json())
-            return
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.warning(e)
-            error_count += 1
-        time.sleep(5)
-
-
-def db_insert(x):
-    while True:
-        try:
-            db.insert_one(x)
-            break
-        except pymongo.errors.DuplicateKeyError:
-            break
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.warning(e)
-
-
-def db_update(x, param):
-    while True:
-        try:
-            return db.find_one_and_update(x, param)
-        except Exception as e:
-            logger.debug(traceback.format_exc())
-            logger.warning(e)
-
-
-def get_news(nextpage=False):
+def get_news(secondpage=False):
     while True:
         try:
             news = []
-            news += crawler.detectInfo(nextpage)
-            news += crawler.detectInfoAcademic(nextpage)
-            news += crawler.detectMyhome(nextpage)
-            news += crawler.detectNews(nextpage)
+            news += crawler.detectInfo(secondpage)
+            news += crawler.detectInfoAcademic(secondpage)
+            news += crawler.detectMyhome(secondpage)
+            news += crawler.detectNews(secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/zydt.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/zydt.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm', nextpage)
+                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm', secondpage)
             news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710', nextpage)
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710', secondpage)
             news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22', nextpage)
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22', secondpage)
             news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303', nextpage)
+                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303', secondpage)
+            for x in news:
+                if x['url'] not in redirect:
+                    orig_url = x['url']
+                    real_url = network.get(orig_url).url
+                    logger.debug(f'redirect: {orig_url} -> {real_url}')
+                    redirect.set(orig_url, real_url)
+                x['url'] = redirect.get(x['url'])
             break
         except Exception as e:
-            logger.warning(e)
-            logger.debug(traceback.format_exc())
+            eprint(e)
             time.sleep(60)
             continue
     return news
 
 
+news = localDict('news')
+
+all_urls = set(url for url in news)
+front_urls = set(url for url, data in news.items() if data['firstpage'])
+
+logger.info(f'all: {len(all_urls)}, front: {len(front_urls)}')
+
+
 def detect():
-    # valid means firstpage
-    valid_news_urls = set([x['url'] for x in db.find({'valid': True})])
-    all_news_urls = set([x['url'] for x in db.find()])
+    insert_count = 0
+    delete_count = 0
 
-    logger.debug(f'Valid: {len(valid_news_urls)}, All: {len(all_news_urls)}')
+    firstpage_news = get_news()
+    for x in firstpage_news:
+        if x['url'] not in all_urls:
 
-    while True:
-        insert_news_urls = set()
-        delete_news_urls = set()
-        news = get_news()
+            # Send to Pipeline channel
+            sendMessage(botToken, CHANNEL['pipe'], json.dumps(
+                {'type': 'newinfo', 'data': x}))
 
-        for x in news:
-            if x['url'] not in all_news_urls:
+            # Send to THU INFO channel
+            msgID = sendMessage(
+                botToken, CHANNEL['thu_info'], format.telegram(x), parse_mode='MarkdownV2')
 
-                # Send to Pipeline channel
-                sendMessage(config['TOKEN']['fwer'], config['FORWARD']['pipe'],
-                            json.dumps({'type': 'newinfo', 'data': x}))
+            # Send to thu.closed.social
+            try:
+                __msgID = mastodon.toot(format.mastodon(x)).id
+            except Exception as e:
+                eprint(e)
+                __msgID = -1
 
-                # Send to THU INFO channel
-                msgID = sendMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'],
-                                    format.tg_single(x), 'MarkdownV2')
+            x['firstpage'] = True
+            x['deleted'] = False
+            x['createTime'] = datetime.now()
+            x['msgID'] = {'thu_info': msgID, 'closed': __msgID}
+            news[x['url']] = x
+            all_urls.add(x['url'])
+            insert_count += 1
 
-                # Send to thu.closed.social
-                try:
-                    __msgID = mastodon.toot(format.mastodon(x)).id
-                except Exception as e:
-                    logger.debug(traceback.format_exc())
-                    logger.warning(e)
-                    __msgID = -1
+    firstpage_urls = set(x['url'] for x in firstpage_news)
+    secondpage_urls = None
 
-                insert_news_urls.add(x['url'])
-                x['valid'] = True
-                x['deleted'] = False
-                x['createTime'] = datetime.now()
-                x['msgID'] = {'info_channel': msgID,
-                              'notify': 0, 'tuna': 0, 'closed': __msgID}
-                db_insert(x)
+    for u in front_urls - firstpage_urls:
+        news[u]['firstpage'] = False
+        if secondpage_urls is None:
+            secondpage_urls = set(x['url'] for x in get_news(secondpage=True))
+        if u in secondpage_urls:
+            news[u]['deleted'] = False
+        else:
+            news[u]['deleted'] = True
+            delete_count += 1
 
-        news_urls = [x['url'] for x in news]
-        __news_urls = None
-        for u in valid_news_urls:
-            if u not in news_urls:
-                if __news_urls is None:
-                    __news_urls = [x['url'] for x in get_news(True)]
-                if u in __news_urls:
-                    delete_news_urls.add(u)
-                    db_update(
-                        {'url': u}, {'$set': {'valid': False, 'deleted': False}})
-                else:
-                    delete_news_urls.add(u)
-                    x = db_update(
-                        {'url': u}, {'$set': {'valid': False, 'deleted': True}})
+            # Delete from Pipeline channel
+            sendMessage(botToken, CHANNEL['pipe'], json.dumps(
+                {'type': 'delinfo', 'data': u}))
 
-                    # Delete from Pipeline channel
-                    sendMessage(config['TOKEN']['fwer'], config['FORWARD']['pipe'],
-                                json.dumps({'type': 'delinfo', 'data': u}))
+            # Delete from THU INFO channel
+            msgID = news[u]['msgID']['thu_info']
+            if msgID > 0:
+                deleteMessage(botToken, CHANNEL['thu_info'], msgID)
 
-                    # Delete from THU INFO channel
-                    msgID = x['msgID']['info_channel']
-                    if msgID > 0:
-                        deleteMessage(config['TOKEN']['fwer'], config['FORWARD']['channel'],
-                                      msgID)
+            # Delete from thu.closed.social
+            try:
+                __msgID = x['msgID']['closed']
+                if __msgID > 0:
+                    mastodon.status_delete(__msgID)
+            except Exception as e:
+                eprint(e)
 
-                    # Delete from thu.closed.social
-                    try:
-                        msgID = x['msgID']['closed']
-                        if msgID > 0:
-                            mastodon.status_delete(msgID)
-                    except Exception as e:
-                        logger.debug(traceback.format_exc())
-                        logger.warning(e)
+    front_urls.clear()
+    front_urls.update(firstpage_urls)
 
-        all_news_urls.update(insert_news_urls)
-        valid_news_urls.update(insert_news_urls)
-        valid_news_urls -= delete_news_urls
+    if insert_count > 0 or delete_count > 0:
+        logger.info(
+            f'firstpage: {len(firstpage_urls)}, new: {insert_count}, del: {delete_count}')
+        news.dump()
 
-        if len(insert_news_urls) > 0 or len(delete_news_urls) > 0:
-            logger.info('Messages: %d, New: %d, Del: %d' % (
-                len(news_urls), len(insert_news_urls), len(delete_news_urls)))
+    sendHeartbeat()
 
-        sendHeartbeat()
-        time.sleep(60)
+
+def test():
+    detect()
+    exit()
 
 
 if __name__ == '__main__':
-    detect()
+    if len(sys.argv) >= 2 and sys.argv[1] == '--test':
+        test()
+    try:
+        detect()
+        schedule.every().minute.do(detect)
+        while True:
+            schedule.run_pending()
+            time.sleep(10)
+    except (KeyboardInterrupt, Exception):
+        pass

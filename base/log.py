@@ -1,6 +1,7 @@
-import sys
 import logging
 import logging.handlers
+import sys
+
 import colorlog
 
 BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(lineno)d - %(funcName)s - %(message)s'
