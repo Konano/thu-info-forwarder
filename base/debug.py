@@ -27,9 +27,9 @@ def eprint(e: Exception, level: int = logging.WARNING, msg: str = None, stacklev
     logger.debug(traceback.format_exc(), stacklevel=stacklevel)
 
 
-def save_log(url: str, content, suffix: str) -> None:
+def archive(url: str, content, suffix: str) -> None:
     now = str(datetime.now()).replace(' ', '_').replace(':', '-')
-    filepath = f'log/debug/{now}.{suffix}'
+    filepath = f'log/archive/{now}.{suffix}'
     if isinstance(content, str):
         open(filepath, 'w').write(content)
     else:

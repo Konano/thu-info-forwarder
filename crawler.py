@@ -6,7 +6,7 @@ import logging
 from bs4 import BeautifulSoup
 
 from base import network
-from base.debug import eprint, save_log
+from base.debug import eprint, archive
 
 
 def attempt(times: int, fix_func):
@@ -48,7 +48,7 @@ def detectInfo(nextpage=False):
                 'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
         assert len(news)
     except Exception as e:
-        save_log(url, text, 'json')
+        archive(url, text, 'json')
         raise e
     return news
 
@@ -78,7 +78,7 @@ def detectInfoAcademic(nextpage=False):
                 'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
         assert len(news)
     except Exception as e:
-        save_log(url, text, 'json')
+        archive(url, text, 'json')
         raise e
     return news
 
@@ -109,7 +109,7 @@ def detectLibrary(url, nextpage=False):
                 'url': 'https://lib.tsinghua.edu.cn/'+each.get('href').replace('../', '')})
         assert len(news)
     except Exception as e:
-        save_log(url, html, 'html')
+        archive(url, html, 'html')
         raise e
     return news
 
@@ -135,7 +135,7 @@ def detectMyhome(nextpage=False):
                 'url': 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
         assert len(news)
     except Exception as e:
-        save_log(url, html, 'html')
+        archive(url, html, 'html')
         raise e
     return news
 
@@ -165,7 +165,7 @@ def detectNews(nextpage=False):
                 'url': url.get('href').replace('../', 'http://www.tsinghua.edu.cn/')})
         assert len(news)
     except Exception as e:
-        save_log(url, html, 'html')
+        archive(url, html, 'html')
         raise e
     return news
 
@@ -195,6 +195,6 @@ def detectOffice(url, nextpage=False):
                     'url': 'http://xxbg.cic.tsinghua.edu.cn/oath/' + url})
         assert len(news)
     except Exception as e:
-        save_log(url, html, 'html')
+        archive(url, html, 'html')
         raise e
     return news
