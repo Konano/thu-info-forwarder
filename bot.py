@@ -1,9 +1,11 @@
 import json
+import logging
 import sys
 import time
 from datetime import datetime
 
 import schedule
+from mastodon.errors import MastodonNotFoundError
 
 import crawler
 from base import format, network
@@ -142,6 +144,8 @@ def detect():
                 __msgID = news[u]['msgID']['closed']
                 if __msgID > 0:
                     mastodon.status_delete(__msgID)
+            except MastodonNotFoundError as e:
+                eprint(e, logging.DEBUG)
             except Exception as e:
                 eprint(e)
 
@@ -170,5 +174,7 @@ if __name__ == '__main__':
         while True:
             schedule.run_pending()
             time.sleep(10)
-    except (KeyboardInterrupt, Exception):
+    except Exception as e:
+        eprint(e, logging.ERROR)
+    except KeyboardInterrupt:
         pass
