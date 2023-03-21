@@ -3,8 +3,13 @@ import http.cookiejar as HC
 import logging
 
 import requests
+from requests.exceptions import ReadTimeout
 
 from base.debug import eprint
+
+
+class StatusCodeError(Exception):
+    pass
 
 
 def attempt(times: int):
@@ -14,7 +19,7 @@ def attempt(times: int):
             for _ in range(times):
                 try:
                     return func(*args, **kwargs)
-                except requests.exceptions.ReadTimeout as e:
+                except (ReadTimeout, StatusCodeError) as e:
                     eprint(e, logging.DEBUG)
                 except Exception as e:
                     raise e
@@ -25,7 +30,10 @@ def attempt(times: int):
 
 @attempt(5)
 def get(url: str, timeout=(5, 10), **kwargs):
-    return requests.get(url, timeout=timeout, **kwargs)
+    resp = requests.get(url, timeout=timeout, **kwargs)
+    if resp.status_code != 200:
+        raise StatusCodeError(f'{resp.status_code = }, != 200')
+    return resp
 
 
 # ========== session ==========
