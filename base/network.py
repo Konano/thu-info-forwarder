@@ -3,7 +3,7 @@ import http.cookiejar as HC
 import logging
 
 import requests
-from requests.exceptions import ReadTimeout
+from requests.exceptions import ConnectTimeout, ReadTimeout
 
 from base.debug import eprint
 
@@ -19,7 +19,7 @@ def attempt(times: int):
             for _ in range(times):
                 try:
                     return func(*args, **kwargs)
-                except (ReadTimeout, StatusCodeError) as e:
+                except (ConnectTimeout, ReadTimeout, StatusCodeError) as e:
                     eprint(e, logging.DEBUG)
                 except Exception as e:
                     raise e

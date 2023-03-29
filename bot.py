@@ -5,7 +5,8 @@ import time
 from datetime import datetime
 
 import schedule
-from mastodon.errors import MastodonNotFoundError
+from mastodon.errors import (MastodonInternalServerError, MastodonNetworkError,
+                             MastodonNotFoundError)
 
 import crawler
 from base import format, network
@@ -105,6 +106,8 @@ def detect():
             # Send to thu.closed.social
             try:
                 __msgID = mastodon.toot(format.mastodon(x)).id
+            except (MastodonInternalServerError, MastodonNetworkError):
+                __msgID = -1
             except Exception as e:
                 eprint(e)
                 __msgID = -1
