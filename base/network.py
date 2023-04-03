@@ -48,7 +48,10 @@ except:
 
 @attempt(5)
 def session_post(url: str, timeout=(5, 10), **kwargs):
-    return session.post(url, timeout=timeout, **kwargs)
+    resp = session.post(url, timeout=timeout, **kwargs)
+    if resp.status_code != 200:
+        raise StatusCodeError(f'{resp.status_code = }, != 200')
+    return resp
 
 
 @attempt(5)
