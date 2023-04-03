@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 
 from base import network
 from base.debug import eprint, archive
+from base.log import logger
 
 
 def attempt(times: int, fix_func):
@@ -46,7 +47,9 @@ def detectInfo(nextpage=False):
                 'source': x['dwmc_show'],
                 'date': x['time'].split(' ')[0].replace('-', '.'),
                 'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, text, 'json')
         raise e
@@ -76,7 +79,9 @@ def detectInfoAcademic(nextpage=False):
                 'source': res['object']['lm_2']['hdlxmc'],
                 'date': x['hdrq'].replace('-', '.'),
                 'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, text, 'json')
         raise e
@@ -107,7 +112,9 @@ def detectLibrary(url, nextpage=False):
                 'source': '图书馆'+source,
                 'date': date.get_text().strip()[:10].replace('/', '.'),
                 'url': 'https://lib.tsinghua.edu.cn/'+each.get('href').replace('../', '')})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, html, 'html')
         raise e
@@ -133,7 +140,9 @@ def detectMyhome(nextpage=False):
                 'source': source.get_text().strip(),
                 'date': date.get_text().strip()[:10].replace('-', '.'),
                 'url': 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, html, 'html')
         raise e
@@ -163,7 +172,9 @@ def detectNews(nextpage=False):
                 'source': '清华新闻网',
                 'date': _date[1] + '.' + _date[0],
                 'url': url.get('href').replace('../', 'http://www.tsinghua.edu.cn/')})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, html, 'html')
         raise e
@@ -193,7 +204,9 @@ def detectOffice(url, nextpage=False):
                     'source': source,
                     'date': date,
                     'url': 'http://xxbg.cic.tsinghua.edu.cn/oath/' + url})
-        assert len(news)
+        if len(news) == 0:
+            archive(url, html, 'html')
+            logger.warning(f"the number of news is 0 ({url})")
     except Exception as e:
         archive(url, html, 'html')
         raise e
