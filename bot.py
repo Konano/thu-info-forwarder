@@ -17,13 +17,18 @@ from base.log import logger
 from base.mastodon import mastodon_init, mastodon_login
 from base.telegram import deleteMessage, sendMessage
 
-try:
-    mastodon = mastodon_login(**MASTODON)
-    assert mastodon is not None
-except Exception as e:
-    eprint(e)
-    mastodon_init(**MASTODON)
-    mastodon = mastodon_login(**MASTODON)
+mastodon = None
+while mastodon is None:
+    try:
+        mastodon = mastodon_login(**MASTODON)
+        if mastodon is None:
+            mastodon_init(**MASTODON)
+            time.sleep(60)
+    except MastodonNetworkError as e:
+        time.sleep(60)
+    except Exception as e:
+        eprint(e)
+        time.sleep(60)
 
 
 def sendHeartbeat():
