@@ -2,11 +2,12 @@ import functools
 import html
 import json
 import logging
+from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
 
 from base import network
-from base.debug import eprint, archive
+from base.debug import archive, eprint
 from base.log import logger
 
 
@@ -35,8 +36,8 @@ def loginInfo():
 def detectInfo(nextpage=False):
     page = 1 if not nextpage else 2
     csrf = network.session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
-    url = f'https://info2021.tsinghua.edu.cn/b/info/xxfb_fg/xnzx/template/more?oType=mr&lmid=all&lydw=&currentPage={page}&length=30&_csrf={csrf}'
-    text = network.session_post(url).text
+    page_url = f'https://info2021.tsinghua.edu.cn/b/info/xxfb_fg/xnzx/template/more?oType=mr&lmid=all&lydw=&currentPage={page}&length=30&_csrf={csrf}'
+    text = network.session_post(page_url).text
     try:
         res = json.loads(text)
         assert res['result'] == 'success'
@@ -46,12 +47,12 @@ def detectInfo(nextpage=False):
                 'title': html.unescape(x['bt']),
                 'source': x['dwmc_show'],
                 'date': x['time'].split(' ')[0].replace('-', '.'),
-                'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
+                'url': urljoin(page_url, x['url'])})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, text, 'json')
+        archive(page_url, text, 'json')
         raise e
     return news
 
@@ -61,8 +62,8 @@ def detectInfoAcademic(nextpage=False):
     if nextpage:
         return []
     csrf = network.session.cookies._cookies['info2021.tsinghua.edu.cn']['/']['XSRF-TOKEN'].value
-    url = f'https://info2021.tsinghua.edu.cn/b/hdrc_fg/api/xxfb?_csrf={csrf}'
-    text = network.session_post(url).text
+    page_url = f'https://info2021.tsinghua.edu.cn/b/hdrc_fg/api/xxfb?_csrf={csrf}'
+    text = network.session_post(page_url).text
     try:
         res = json.loads(text)
         assert res['result'] == 'success'
@@ -78,27 +79,27 @@ def detectInfoAcademic(nextpage=False):
                 'title': html.unescape(x['bt']),
                 'source': res['object']['lm_2']['hdlxmc'],
                 'date': x['hdrq'].replace('-', '.'),
-                'url': f'https://info2021.tsinghua.edu.cn' + x['url']})
+                'url': urljoin(page_url, x['url'])})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, text, 'json')
+        archive(page_url, text, 'json')
         raise e
     return news
 
 
-def detectLibrary(url, nextpage=False):
-    html = network.get(url).content
+def detectLibrary(page_url, nextpage=False):
+    html = network.get(page_url).content
     try:
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         if nextpage:
-            __url = bs.select(
+            url = bs.select(
                 'body > div.main > div > div > div > span.p_pages > span.p_next.p_fun > a')
-            if len(__url) == 0:
+            if len(url) == 0:
                 return []
-            url = url[::-1].split('/', 1)[1][::-1] + '/' + __url[0].get('href')
-            html = network.get(url).content
+            page_url = urljoin(page_url, url[0].get('href'))
+            html = network.get(page_url).content
             bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         content = bs.select(
             'body > div.main > div > div > ul > li > div.notice-list-tt > a')
@@ -111,20 +112,20 @@ def detectLibrary(url, nextpage=False):
                 'title': each.get_text(),
                 'source': '图书馆'+source,
                 'date': date.get_text().strip()[:10].replace('/', '.'),
-                'url': 'https://lib.tsinghua.edu.cn/'+each.get('href').replace('../', '')})
+                'url': urljoin(page_url, each.get('href'))})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, html, 'html')
+        archive(page_url, html, 'html')
         raise e
     return news
 
 
 def detectMyhome(nextpage=False):
-    url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.aspx' + \
+    page_url = 'http://myhome.tsinghua.edu.cn/Netweb_List/News_notice.aspx' + \
         ('?page=2' if nextpage else '')
-    html = network.get(url).content
+    html = network.get(page_url).content
     try:
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         content = bs.select(
@@ -139,26 +140,26 @@ def detectMyhome(nextpage=False):
                 'title': each.get('title').strip(),
                 'source': source.get_text().strip(),
                 'date': date.get_text().strip()[:10].replace('-', '.'),
-                'url': 'http://myhome.tsinghua.edu.cn/Netweb_List/'+each.get('href')})
+                'url': urljoin(page_url, each.get('href'))})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, html, 'html')
+        archive(page_url, html, 'html')
         raise e
     return news
 
 
 def detectNews(nextpage=False):
-    url = 'https://www.tsinghua.edu.cn/news/zxdt.htm'
-    html = network.get(url).content
+    page_url = 'https://www.tsinghua.edu.cn/news/zxdt.htm'
+    html = network.get(page_url).content
     try:
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         if nextpage:
-            __url = bs.select(
+            url = bs.select(
                 'body > div.rem12 > div.left > div.fanye.pcfyt > ul > div > span.p_pages > span.p_next.p_fun > a')[0]
-            url = url[::-1].split('/', 1)[1][::-1] + '/' + __url.get('href')
-            html = network.get(url).content
+            page_url = urljoin(page_url, url.get('href'))
+            html = network.get(page_url).content
             bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         titles = bs.select(
             'body > div.rem12 > div.left > ul > li > a > div.tit > p')
@@ -171,20 +172,20 @@ def detectNews(nextpage=False):
                 'title': title.get_text().strip(),
                 'source': '清华新闻网',
                 'date': _date[1] + '.' + _date[0],
-                'url': url.get('href').replace('../', 'http://www.tsinghua.edu.cn/')})
+                'url': urljoin(page_url, url.get('href'))})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, html, 'html')
+        archive(page_url, html, 'html')
         raise e
     return news
 
 
-def detectOffice(url, nextpage=False):
+def detectOffice(page_url, nextpage=False):
     if nextpage:
-        url += '&pageno=2'
-    html = network.get(url).content
+        page_url += '&pageno=2'
+    html = network.get(page_url).content
     try:
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
         source = bs.select(
@@ -203,11 +204,11 @@ def detectOffice(url, nextpage=False):
                     'title': title,
                     'source': source,
                     'date': date,
-                    'url': 'http://xxbg.cic.tsinghua.edu.cn/oath/' + url})
+                    'url': urljoin(page_url, url)})
         if len(news) == 0:
-            archive(url, html, 'html')
-            logger.warning(f"the number of news is 0 ({url})")
+            archive(page_url, html, 'html')
+            logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
-        archive(url, html, 'html')
+        archive(page_url, html, 'html')
         raise e
     return news
