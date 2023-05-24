@@ -121,7 +121,7 @@ def detect():
             x['deleted'] = False
             x['createTime'] = datetime.now()
             x['msgID'] = {'thu_info': msgID, 'closed': __msgID}
-            news[x['url']] = x
+            news.set(x['url'], x)
             all_urls.add(x['url'])
             insert_count += 1
 
@@ -156,6 +156,7 @@ def detect():
                 eprint(e, logging.DEBUG)
             except Exception as e:
                 eprint(e)
+        news.dump()
 
     front_urls.clear()
     front_urls.update(firstpage_urls)

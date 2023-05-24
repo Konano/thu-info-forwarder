@@ -1,6 +1,7 @@
 import time
 
 from base import network
+from base.debug import eprint
 from base.config import TelegramAPI
 
 headers = {
@@ -23,11 +24,18 @@ def sendMessage(token, chat_id, text, **kwargs):
     """
     Send msg to Telegram
     """
-    url = f'https://{TelegramAPI}/bot{token}/sendMessage'
-    params = {'text': text, 'chat_id': chat_id,
-              'disable_web_page_preview': True, **kwargs}
-    resp = _request_get(url, params=params)
-    return resp.json()['result']['message_id']
+    for _ in range(5):
+        url = f'https://{TelegramAPI}/bot{token}/sendMessage'
+        params = {'text': text, 'chat_id': chat_id,
+                  'disable_web_page_preview': True, **kwargs}
+        resp = _request_get(url, params=params)
+        if resp.json()['ok'] is False:
+            eprint(Exception(resp.json()['description']))
+            time.sleep(30)
+            continue
+        return resp.json()['result']['message_id']
+    else:
+        raise RuntimeError
 
 
 def deleteMessage(token, chat_id, message_id, **kwargs):
