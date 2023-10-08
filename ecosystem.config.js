@@ -3,7 +3,7 @@ module.exports = {
         name: 'THU Info',
         cmd: 'bot.py',
         interpreter: 'python3',
-        // autorestart: false,
+        autorestart: true,
         // watch: true,
     }]
 };
