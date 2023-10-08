@@ -89,7 +89,7 @@ def detectInfoAcademic(nextpage=False):
     return news
 
 
-def detectLibrary(page_url, nextpage=False):
+def detectLibrary(page_url, nextpage=False, allowzero=False):
     html = network.get(page_url).content
     try:
         bs = BeautifulSoup(html, 'lxml', from_encoding='utf-8')
@@ -113,7 +113,7 @@ def detectLibrary(page_url, nextpage=False):
                 'source': '图书馆'+source,
                 'date': date.get_text().strip()[:10].replace('/', '.'),
                 'url': urljoin(page_url, each.get('href'))})
-        if len(news) == 0:
+        if not allowzero and len(news) == 0:
             archive(page_url, html, 'html')
             logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:

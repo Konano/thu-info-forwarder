@@ -58,7 +58,7 @@ def get_news(secondpage=False):
             news += crawler.detectLibrary(
                 'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', secondpage)
             news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', secondpage)
+                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', secondpage, True)
             news += crawler.detectLibrary(
                 'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', secondpage)
             news += crawler.detectLibrary(
