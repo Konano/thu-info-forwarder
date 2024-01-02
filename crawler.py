@@ -205,9 +205,9 @@ def detectOffice(page_url, nextpage=False):
                     'source': source,
                     'date': date,
                     'url': urljoin(page_url, url)})
-        if len(news) == 0:
-            archive(page_url, html, 'html')
-            logger.warning(f"the number of news is 0 ({page_url})")
+        # if len(news) == 0:
+        #     archive(page_url, html, 'html')
+        #     logger.warning(f"the number of news is 0 ({page_url})")
     except Exception as e:
         archive(page_url, html, 'html')
         raise e
