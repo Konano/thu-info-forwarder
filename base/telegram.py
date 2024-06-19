@@ -1,8 +1,9 @@
 import time
 
 from base import network
-from base.debug import eprint
 from base.config import TelegramAPI
+from base.debug import eprint
+from base.log import logger
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.87 Safari/537.36'
@@ -20,7 +21,7 @@ def _request_get(url: str, **kwargs):
             f'Cloudflare Worker: error with code {resp.status_code}')
 
 
-def sendMessage(token, chat_id, text, **kwargs):
+def sendMessage(token: str, chat_id: str, text: str, **kwargs):
     """
     Send msg to Telegram
     """
@@ -31,14 +32,16 @@ def sendMessage(token, chat_id, text, **kwargs):
         resp = _request_get(url, params=params)
         if resp.json()['ok'] is False:
             eprint(Exception(resp.json()['description']))
+            logger.warning('Telegram API error, wait 30s then retry...')
             time.sleep(30)
             continue
         return resp.json()['result']['message_id']
     else:
+        logger.error('Retry 5 times, failed to send message to Telegram')
         raise RuntimeError
 
 
-def deleteMessage(token, chat_id, message_id, **kwargs):
+def deleteMessage(token: str, chat_id: str, message_id: int, **kwargs):
     """
     Delete msg from Telegram
     """

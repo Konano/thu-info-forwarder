@@ -1,17 +1,21 @@
 import logging
 import traceback
 from datetime import datetime
+from typing import Optional
 
 from base.log import logger
 
 
 def exception_desc(e: Exception) -> str:
+    """
+    Return exception description.
+    """
     if str(e) != '':
         return f'{e.__class__.__module__}.{e.__class__.__name__} ({e})'
     return f'{e.__class__.__module__}.{e.__class__.__name__}'
 
 
-def eprint(e: Exception, level: int = logging.WARNING, msg: str = None, stacklevel: int = 2) -> None:
+def eprint(e: Exception, level: int = logging.WARNING, msg: Optional[str] = None, stacklevel: int = 2) -> None:
     """
     Print exception with traceback.
     """

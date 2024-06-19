@@ -7,10 +7,10 @@ from Crypto.Cipher import AES
 
 # MarkdownV2 Mode
 def escaped(str):
-    return re.sub('([\_\*\[\]\(\)\~\`\>\#\+\-\=\|\{\}\.\!])', '\\\\\\1', str)
+    return re.sub(r'([\_\*\[\]\(\)\~\`\>\#\+\-\=\|\{\}\.\!])', '\\\\\\1', str)
 
 
-def encrypt(url: str) -> str:
+def encrypt(url_raw: str) -> str:
     """WebVPN URL encryption"""
     encryStr = b'wrdvpnisthebest!'
 
@@ -21,7 +21,7 @@ def encrypt(url: str) -> str:
         return bytes.decode(binascii.b2a_hex(encryStr)) + \
             bytes.decode(binascii.b2a_hex(cryptor.encrypt(url)))
 
-    url = urlparse(url)
+    url = urlparse(url_raw)
     scheme = url.scheme
     host = url.hostname
     port = url.port
@@ -30,7 +30,7 @@ def encrypt(url: str) -> str:
     url = encrypt(host) + path
 
     if port is not None:
-        url = 'https://webvpn.tsinghua.edu.cn/' + scheme + '-' + port + '/' + url
+        url = 'https://webvpn.tsinghua.edu.cn/' + scheme + '-' + str(port) + '/' + url
     else:
         url = 'https://webvpn.tsinghua.edu.cn/' + scheme + '/' + url
 

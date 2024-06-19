@@ -5,8 +5,8 @@ from logging.handlers import TimedRotatingFileHandler
 
 import colorlog
 
-BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(lineno)d - %(funcName)s - %(message)s'
-COLOR_FORMAT = '%(log_color)s%(asctime)s - %(levelname)s - %(lineno)d - %(funcName)s - %(message)s'
+BASIC_FORMAT = '%(asctime)s - %(levelname)s - %(lineno)d - %(message)s'
+COLOR_FORMAT = '%(log_color)s%(asctime)s - %(levelname)s - %(lineno)d - %(message)s'
 DATE_FORMAT = None
 basic_formatter = logging.Formatter(BASIC_FORMAT, DATE_FORMAT)
 color_formatter = colorlog.ColoredFormatter(COLOR_FORMAT, DATE_FORMAT)

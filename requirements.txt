@@ -1,6 +1,10 @@
-beautifulsoup4~=4.11.2
-lxml~=4.9.2
-pycryptodome~=3.17
-colorlog~=6.7.0
-schedule~=1.1.0
-# Mastodon.py~=1.8.0
+schedule~1.2.2
+colorlog~=6.8.2
+
+# parser
+beautifulsoup4~=4.12.3
+lxml~=5.2.2
+
+# other
+Mastodon.py~=1.8.1
+pycryptodome~=3.20.0

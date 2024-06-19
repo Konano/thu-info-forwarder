@@ -7,5 +7,5 @@ botToken = config['BOT']['token']
 heartbeatURL = config['BOT']['heartbeaturl']
 TelegramAPI = config['BOT']['apiurl']
 
-MASTODON = config._sections['MASTODON']
-CHANNEL = config._sections['CHANNEL']
+CHANNEL = dict(config.items('CHANNEL'))
+MASTODON = dict(config.items('MASTODON'))

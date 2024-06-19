@@ -1,8 +1,10 @@
 import functools
 import http.cookiejar as HC
 import logging
+from typing import cast
 
 import requests
+from requests import Response
 from requests.exceptions import ConnectTimeout, ReadTimeout, SSLError
 
 from base.debug import eprint
@@ -31,36 +33,30 @@ def attempt(times: int):
 
 
 @attempt(5)
-def get(url: str, timeout=(5, 10), **kwargs):
-    resp = requests.get(url, timeout=timeout, **kwargs)
-    if resp.status_code != 200:
+def get(url: str, timeout=(5, 10), validate_status=True, **kwargs) -> Response:
+    resp: Response = requests.get(url, timeout=timeout, **kwargs)
+    if validate_status and resp.status_code != 200:
         raise StatusCodeError(f'{resp.status_code = }, != 200')
     return resp
 
 
 # ========== session ==========
-
 session = requests.session()
-session.cookies = HC.LWPCookieJar(filename='secret/cookies')
+session.cookies = HC.LWPCookieJar(filename='secret/cookies')  # type: ignore
 try:
-    session.cookies.load(ignore_discard=True)
+    cast(HC.LWPCookieJar, session.cookies).load(ignore_discard=True)
 except:
     pass
 
 
 @attempt(5)
-def session_post(url: str, timeout=(5, 10), **kwargs):
-    resp = session.post(url, timeout=timeout, **kwargs)
+def session_post(url: str, timeout=(5, 10), **kwargs) -> Response:
+    resp: Response = session.post(url, timeout=timeout, **kwargs)
     if resp.status_code != 200:
         raise StatusCodeError(f'{resp.status_code = }, != 200')
     return resp
 
 
 @attempt(5)
-def session_get(url: str, timeout=(5, 10), **kwargs):
+def session_get(url: str, timeout=(5, 10), **kwargs) -> Response:
     return session.get(url, timeout=timeout, **kwargs)
-
-
-# @attempt(5)
-# def mastodon_toot(mastodon, status, **kwargs):
-#     return mastodon.toot(status, **kwargs)

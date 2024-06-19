@@ -3,174 +3,133 @@ import logging
 import sys
 import time
 from datetime import datetime
+from typing import Any, cast
 
 import schedule
 from mastodon.errors import (MastodonInternalServerError, MastodonNetworkError,
                              MastodonNotFoundError)
 
-import crawler
-from base import format, network
-from base.config import CHANNEL, MASTODON, botToken, heartbeatURL
+from base import network, style
+from base.config import CHANNEL, botToken, heartbeatURL
 from base.data import localDict
 from base.debug import eprint
 from base.log import logger
-from base.mastodon import mastodon_init, mastodon_login
+from base.mastodon import mastodon
 from base.telegram import deleteMessage, sendMessage
+from crawler import checkURL, crawlNews
 
-mastodon = None
-while mastodon is None:
-    try:
-        mastodon = mastodon_login(**MASTODON)
-        if mastodon is None:
-            mastodon_init(**MASTODON)
-            time.sleep(60)
-    except MastodonNetworkError as e:
-        time.sleep(60)
-    except Exception as e:
-        eprint(e)
-        time.sleep(60)
+# Test mode
+testmode = False
+
+
+def setTestmode():
+    global testmode
+    testmode = True
 
 
 def sendHeartbeat():
     try:
         network.get(heartbeatURL)
+        if testmode:
+            print("HEARTBEAT OK")
     except Exception as e:
         eprint(e)
 
 
-redirect = localDict('redirect')
+assert mastodon is not None, 'no Mastodon instance'
 
 
-def get_news(secondpage=False):
-    while True:
-        try:
-            news = []
-            news += crawler.detectInfo(secondpage)
-            news += crawler.detectInfoAcademic(secondpage)
-            news += crawler.detectMyhome(secondpage)
-            news += crawler.detectNews(secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/zydt.htm', secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/kgtz.htm', secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/sgwx.htm', secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/fwtz.htm', secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/wgtb.htm', secondpage, True)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/qtkx.htm', secondpage)
-            news += crawler.detectLibrary(
-                'https://lib.tsinghua.edu.cn/tzgg/gjtz.htm', secondpage)
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=2710', secondpage)
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=22', secondpage)
-            news += crawler.detectOffice(
-                'http://xxbg.cic.tsinghua.edu.cn/oath/list.jsp?boardid=3303', secondpage)
-            for x in news:
-                if x['url'] not in redirect:
-                    orig_url = x['url']
-                    real_url = network.get(orig_url).url
-                    logger.debug(f'redirect: {orig_url} -> {real_url}')
-                    redirect.set(orig_url, real_url)
-                x['url'] = redirect.get(x['url'])
-            break
-        except Exception as e:
-            eprint(e)
-            time.sleep(60)
-            continue
-    return news
+all_news = localDict('news')
+all_urls = set(url for url in all_news)
+now_urls = set(url for url, data in all_news.items() if data['homepage'])
+
+logger.info(f'Number of news: {len(all_urls)}')
+logger.info(f'Number of news on the homepage: {len(now_urls)}')
 
 
-news = localDict('news')
+def run():
+    """
+    Detect news and send to channels
+    """
+    insert_num = 0  # Number of news published
+    delete_num = 0  # Number of news removed
 
-all_urls = set(url for url in news)
-front_urls = set(url for url, data in news.items() if data['firstpage'])
-
-logger.info(f'all: {len(all_urls)}, front: {len(front_urls)}')
-
-
-def detect():
-    insert_count = 0
-    delete_count = 0
-
-    firstpage_news = get_news()
-    for x in firstpage_news:
+    news = cast(list[dict[str, Any]], crawlNews())
+    for x in news:
         if x['url'] not in all_urls:
+            if not testmode:
 
-            # Send to Pipeline channel
-            sendMessage(botToken, CHANNEL['pipe'], json.dumps(
-                {'type': 'newinfo', 'data': x}))
+                # Send to Pipeline channel
+                sendMessage(botToken, CHANNEL['pipe'], json.dumps({'type': 'newinfo', 'data': x}))
 
-            # Send to THU INFO channel
-            msgID = sendMessage(
-                botToken, CHANNEL['thu_info'], format.telegram(x), parse_mode='MarkdownV2')
+                # Send to THU INFO channel
+                try:
+                    msgID_1 = sendMessage(botToken, CHANNEL['thu_info'],
+                                          style.telegram(x), parse_mode='MarkdownV2')
+                except Exception as e:
+                    eprint(e)
+                    msgID_1 = -1
 
-            # Send to thu.closed.social
-            try:
-                __msgID = mastodon.toot(format.mastodon(x)).id
-            except (MastodonInternalServerError, MastodonNetworkError):
-                __msgID = -1
-            except Exception as e:
-                eprint(e)
-                __msgID = -1
+                # Send to thu.closed.social
+                try:
+                    msgID_2 = mastodon.toot(style.mastodon(x)).id
+                except (MastodonInternalServerError, MastodonNetworkError):
+                    msgID_2 = -1
+                except Exception as e:
+                    eprint(e)
+                    msgID_2 = -1
+            else:
+                msgID_1 = msgID_2 = -1
 
-            x['firstpage'] = True
+            x['homepage'] = True
             x['deleted'] = False
             x['createTime'] = datetime.now()
-            x['msgID'] = {'thu_info': msgID, 'closed': __msgID}
-            news.set(x['url'], x)
+            x['msgID'] = {'thu_info': msgID_1, 'closed': msgID_2}
+            all_news.set(x['url'], x)
             all_urls.add(x['url'])
-            insert_count += 1
+            now_urls.add(x['url'])
+            insert_num += 1
 
-    firstpage_urls = set(x['url'] for x in firstpage_news)
-    secondpage_urls = None
+    # Check whether the news that has not appeared on the homepage is deleted
+    for u in now_urls - set(x['url'] for x in news):
+        all_news[u]['homepage'] = False
 
-    for u in front_urls - firstpage_urls:
-        news[u]['firstpage'] = False
-        if secondpage_urls is None:
-            secondpage_urls = set(x['url'] for x in get_news(secondpage=True))
-        if u in secondpage_urls:
-            news[u]['deleted'] = False
-        else:
-            news[u]['deleted'] = True
-            delete_count += 1
+        if not checkURL(u):
+            all_news[u]['deleted'] = True
+            delete_num += 1
+            if not testmode:
 
-            # Delete from Pipeline channel
-            sendMessage(botToken, CHANNEL['pipe'], json.dumps(
-                {'type': 'delinfo', 'data': u}))
+                # Delete from Pipeline channel
+                sendMessage(botToken, CHANNEL['pipe'], json.dumps({'type': 'delinfo', 'data': u}))
 
-            # Delete from THU INFO channel
-            msgID = news[u]['msgID']['thu_info']
-            if msgID > 0:
-                deleteMessage(botToken, CHANNEL['thu_info'], msgID)
+                # Delete from THU INFO channel
+                if all_news[u]['msgID']['thu_info'] > 0:
+                    deleteMessage(botToken, CHANNEL['thu_info'], all_news[u]['msgID']['thu_info'])
 
-            # Delete from thu.closed.social
-            try:
-                __msgID = news[u]['msgID']['closed']
-                if __msgID > 0:
-                    mastodon.status_delete(__msgID)
-            except MastodonNotFoundError as e:
-                eprint(e, logging.DEBUG)
-            except Exception as e:
-                eprint(e)
-        news.dump()
+                # Delete from thu.closed.social
+                try:
+                    if all_news[u]['msgID']['closed'] > 0:
+                        mastodon.status_delete(all_news[u]['msgID']['closed'])
+                except MastodonNotFoundError as e:
+                    eprint(e, logging.DEBUG)
+                except Exception as e:
+                    eprint(e)
 
-    front_urls.clear()
-    front_urls.update(firstpage_urls)
+        all_news.dump()
 
-    if insert_count > 0 or delete_count > 0:
-        logger.info(
-            f'firstpage: {len(firstpage_urls)}, new: {insert_count}, del: {delete_count}')
-        news.dump()
+    now_urls.clear()
+    now_urls.update(x['url'] for x in news)
+
+    if insert_num > 0 or delete_num > 0:
+        logger.info(f'Homepage: {len(now_urls)}, New: {insert_num}, Del: {delete_num}')
+        all_news.dump()
 
     sendHeartbeat()
 
 
 def test():
-    detect()
+    setTestmode()
+    run()
     exit()
 
 
@@ -178,8 +137,8 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2 and sys.argv[1] == '--test':
         test()
     try:
-        detect()
-        schedule.every().minute.do(detect)
+        run()
+        schedule.every().minute.do(run)
         while True:
             schedule.run_pending()
             time.sleep(10)

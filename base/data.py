@@ -1,5 +1,7 @@
 import json
 import traceback
+from collections.abc import ItemsView, KeysView, ValuesView
+from typing import Any, Iterator, Optional, cast
 
 from base.log import logger
 
@@ -9,7 +11,7 @@ class _localStore:
     A local file store.
     """
 
-    def __init__(self, filepath: str, default: dict) -> None:
+    def __init__(self, filepath: str, default: object) -> None:
         self.filepath = filepath
         self.default = default
         self.load()
@@ -22,8 +24,7 @@ class _localStore:
             with open(self.filepath, 'r') as f:
                 self.data = json.load(f)
         except Exception as e:
-            logger.warning(
-                f'Failed to load data, use default. {self.filepath}, {e}')
+            logger.warning(f'Failed to load data, use default. {self.filepath}, {e}')
             logger.debug(traceback.format_exc())
             self.data = self.default
             with open(self.filepath, 'w') as f:
@@ -65,56 +66,59 @@ class _localStore:
             logger.error(f'Failed to dump data to file. {self.filepath}, {e}')
             logger.debug(traceback.format_exc())
 
-    def update(self, value: dict, update=True) -> None:
+    def update(self, value, update=True) -> None:
         self.data = value
-        update and self.dump()
+        update and self.dump()  # type: ignore
 
-    def __iter__(self):
+
+class localDict(_localStore):
+    def __init__(self, name: str, default: Optional[dict[str, Any]] = None, folder='data') -> None:
+        if default is None:
+            default = {}
+        filepath = folder + '/' + name + '.json'
+        super().__init__(filepath, default)
+        self.data = cast(dict[str, Any], self.data)
+
+    def __getitem__(self, key: str) -> Any:
+        return self.data[key]
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        self.data[key] = value
+
+    def __delitem__(self, key: str) -> None:
+        if key in self.data:
+            del self.data[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self.data
+
+    def __iter__(self) -> Iterator:
         return iter(self.data)
 
     def __len__(self) -> int:
         return len(self.data)
 
-    def clear(self, update=True) -> None:
-        self.data.clear()
-        update and self.dump()
-
-
-class localDict(_localStore):
-    def __init__(self, name: str, default: dict = None, folder='data') -> None:
-        if default is None:
-            default = {}
-        filepath = folder + '/' + name + '.json'
-        super().__init__(filepath, default)
-
-    def __getitem__(self, key: str) -> object:
-        return self.data.get(key, None)
-
-    def __setitem__(self, key: str, value: object) -> None:
-        self.data[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.data[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.data
-
-    def keys(self) -> list:
+    def keys(self) -> KeysView[str]:
         return self.data.keys()
 
-    def values(self) -> list:
+    def values(self) -> ValuesView[Any]:
         return self.data.values()
 
-    def get(self, key: str) -> object:
+    def get(self, key: str) -> Any:
         return self.data.get(key)
 
-    def items(self) -> list:
+    def items(self) -> ItemsView[str, Any]:
         return self.data.items()
 
-    def set(self, key: str, value: object, update=True) -> None:
+    def set(self, key: str, value: Any, update=True) -> None:
         self.data[key] = value
-        update and self.dump()
+        update and self.dump()  # type: ignore
 
     def delete(self, key: str, update=True) -> None:
-        del self.data[key]
-        update and self.dump()
+        if key in self.data:
+            del self.data[key]
+        update and self.dump()  # type: ignore
+
+    def clear(self, update=True) -> None:
+        self.data.clear()
+        update and self.dump()  # type: ignore
