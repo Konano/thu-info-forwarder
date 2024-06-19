@@ -1,6 +1,7 @@
 import logging
-import logging.handlers
 import sys
+from logging import Filter, StreamHandler
+from logging.handlers import TimedRotatingFileHandler
 
 import colorlog
 
@@ -11,7 +12,7 @@ basic_formatter = logging.Formatter(BASIC_FORMAT, DATE_FORMAT)
 color_formatter = colorlog.ColoredFormatter(COLOR_FORMAT, DATE_FORMAT)
 
 
-class MaxFilter:
+class MaxFilter(Filter):
     def __init__(self, max_level):
         self.max_level = max_level
 
@@ -20,17 +21,29 @@ class MaxFilter:
             return True
 
 
-chlr = logging.StreamHandler(stream=sys.stdout)
+class EnhancedRotatingFileHandler(TimedRotatingFileHandler):
+    def __init__(self, filename, when='h', interval=1, backupCount=0, encoding=None, delay=False, utc=False):
+        super().__init__(filename, when, interval, backupCount, encoding, delay, utc)
+
+    def computeRollover(self, currentTime: int):
+        """
+        Work out the rollover time based on the specified time.
+        """
+        if self.when == 'MIDNIGHT' or self.when.startswith('W'):
+            return super().computeRollover(currentTime)
+        return currentTime - currentTime % self.interval + self.interval
+
+
+chlr = StreamHandler(stream=sys.stdout)
 chlr.setFormatter(color_formatter)
 chlr.setLevel('INFO')
 chlr.addFilter(MaxFilter(logging.INFO))
 
-ehlr = logging.StreamHandler(stream=sys.stderr)
+ehlr = StreamHandler(stream=sys.stderr)
 ehlr.setFormatter(color_formatter)
 ehlr.setLevel('WARNING')
 
-fhlr = logging.handlers.TimedRotatingFileHandler(
-    'log/server', when='H', interval=1, backupCount=24*7)
+fhlr = EnhancedRotatingFileHandler('log/server.log', when='H', interval=1, backupCount=24*7)
 fhlr.setFormatter(basic_formatter)
 fhlr.setLevel('DEBUG')
 
